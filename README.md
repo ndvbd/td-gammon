@@ -206,3 +206,15 @@ For a detailed description of the environment: [`gym-backgammon`](https://github
 ---
 ## <a name="license"></a>License
 [MIT](https://github.com/dellalibera/td-gammon/blob/master/LICENSE) 
+
+# Results
+
+exp_20221230_1048_41_259706_100000.tar is a 40 neuron NN trained for 100k steps, wins about 73% of games against beginner, 50% of games against intermediate, and fewer against advanced and world class
+Took about 10 minutes to train with 16 processes
+
+exp_20221230_1713_28_521264_1000000.tar is a 40 neuron NN trained for 1 million steps
+Took about 2.2 hours to train with 12 processes
+.57 against intermediate, 
+.43 against advanced
+.33 against world-class
+.77 against beginner

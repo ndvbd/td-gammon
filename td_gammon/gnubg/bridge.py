@@ -1,16 +1,10 @@
 # THIS FILE SHOULD BE RUN ON THE SAME MACHINE WHERE gnubg IS INSTALLED.
-# IT USES PYTHON 2.7
+# IT USES PYTHON 3.10
 
 import gnubg
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-# from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-
-try:
-    from urllib.parse import urlparse, parse_qs
-except ImportError:
-     from urlparse import urlparse, parse_qs
-
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
 
 class Handler(BaseHTTPRequestHandler):
 
@@ -25,7 +19,6 @@ class Handler(BaseHTTPRequestHandler):
         data = parse_qs(post_data)
 
         command = data['command'][0]
-        print(command)
 
         prev_game = gnubg.match(0)['games'][-1]['game'] if gnubg.match(0) else []
 
@@ -58,7 +51,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
 
         self._set_headers()
-        self.wfile.write(json.dumps(response))
+        self.wfile.write(json.dumps(response).encode())
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -66,12 +59,21 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path:
             self._set_headers()
-            self.wfile.write(bytes("Hello! Welcome to Backgammon WebGUI"))
+            self.wfile.write(b"Hello! Welcome to Backgammon WebGUI")
 
 
 def run(host, server_class=HTTPServer, handler_class=Handler, port=8001):
     server_address = (host, port)
-    httpd = server_class(server_address, handler_class)
+
+    httpd = None
+
+    while httpd is None:
+        try:
+            httpd = server_class(server_address, handler_class)
+        except OSError:
+            port += 1
+            server_address = (host, port)
+
     print('Starting httpd ({}:{})...'.format(host, port))
     httpd.serve_forever()
 
@@ -80,3 +82,4 @@ if __name__ == "__main__":
     HOST = 'localhost'  # <-- YOUR HOST HERE
     PORT = 8001  # <-- YOUR PORT HERE
     run(host=HOST, port=PORT)
+

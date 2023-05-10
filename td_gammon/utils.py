@@ -1,10 +1,12 @@
 import os
+import time
+
 import gym
 import sys
 from agents import TDAgent, HumanAgent, TDAgentGNU, RandomAgent, evaluate_agents
 from gnubg.gnubg_backgammon import GnubgInterface, GnubgEnv, evaluate_vs_gnubg
 from gym_backgammon.envs.backgammon import WHITE, BLACK
-from model import TDGammon, TDGammonCNN
+from model import TDGammon, TDGammonCNN, TDGammonNew
 from web_gui.gui import GUI
 from torch.utils.tensorboard import SummaryWriter
 
@@ -30,9 +32,16 @@ def path_exists(path):
 
 
 # ==================================== TRAINING PARAMETERS ===================================
+def launch_train(args, net, num_episodes, eval_step, barrier):
+    if args.type == 'nn':
+        env = gym.make('gym_backgammon:backgammon-v0')
+    else:
+        env = gym.make('gym_backgammon:backgammon-pixel-v0')
+
+    net.train_agent(env=env, n_episodes=num_episodes, eval_step=eval_step, eval_opponent=args.eval_opponent, eligibility=True,
+                    name_experiment=args.name, barrier=barrier)
+
 def args_train(args):
-    save_step = args.save_step
-    save_path = None
     n_episodes = args.episodes
     init_weights = args.init_weights
     lr = args.lr
@@ -46,7 +55,7 @@ def args_train(args):
     optimizer = None
 
     if model_type == 'nn':
-        net = TDGammon(hidden_units=hidden_units, lr=lr, lamda=lamda, init_weights=init_weights, seed=seed)
+        net = TDGammonNew(hidden_units=hidden_units, num_residuals=3, lr=lr, lamda=lamda, init_weights=init_weights, seed=seed, save_path=args.save_path)
         eligibility = True
         env = gym.make('gym_backgammon:backgammon-v0')
 
@@ -61,15 +70,42 @@ def args_train(args):
 
     if args.save_path and path_exists(args.save_path):
         # assert os.path.exists(args.save_path), print("The path {} doesn't exists".format(args.save_path))
-        save_path = args.save_path
 
         write_file(
-            save_path, save_path=args.save_path, command_line_args=args, type=model_type, hidden_units=hidden_units, init_weights=init_weights, alpha=net.lr, lamda=net.lamda,
-            n_episodes=n_episodes, save_step=save_step, start_episode=net.start_episode, name_experiment=name, env=env.spec.id, restored_model=args.model, seed=seed,
+            args.save_path, save_path=args.save_path, command_line_args=args, type=model_type, hidden_units=hidden_units, init_weights=init_weights, alpha=net.lr, lamda=net.lamda,
+            n_episodes=n_episodes, start_episode=net.start_episode, name_experiment=name, env=env.spec.id, restored_model=args.model, seed=seed,
             eligibility=eligibility, optimizer=optimizer, modules=[module for module in net.modules()]
         )
 
-    net.train_agent(env=env, n_episodes=n_episodes, save_path=save_path, save_step=save_step, eligibility=eligibility, name_experiment=name)
+    if args.processes == 1:
+        net.train_agent(env=env, n_episodes=n_episodes, eval_step=args.eval_step,
+                        eligibility=eligibility, name_experiment=name)
+    else:
+        net.share_memory()
+
+        barrier = mp.Barrier(args.processes)
+        start = time.time()
+        processes = []
+
+        for process_num in range(args.processes):
+            # this evenly distributes the episodes across the processes
+            num_train_eps_per_process = n_episodes // args.processes + (process_num < n_episodes % args.processes)
+
+            # we also evenly distribute the eval steps across the processes
+            eval_step = args.eval_step // args.processes
+
+            p = mp.Process(target=launch_train, args=(args, net, num_train_eps_per_process, eval_step, barrier))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+
+        end = time.time()
+
+        if args.save_path:
+            net.checkpoint(checkpoint_path=net.save_path, step=n_episodes - 1, name_experiment=name)
+        print("Total training time: {}".format(end - start))
 
 
 # ==================================== WEB GUI PARAMETERS ====================================
@@ -122,6 +158,18 @@ def args_evaluate(args):
 
 
 # ===================================== GNUBG PARAMETERS =====================================
+import torch.multiprocessing as mp
+import threading
+
+def launch_eval(args, model, proc, num_episodes):
+    port = args.port + proc
+    gnubg_interface = GnubgInterface(host=args.host, port=port)
+    gnubg_env = GnubgEnv(gnubg_interface, difficulty=args.difficulty, model_type=args.type)
+    wins = evaluate_vs_gnubg(agent=TDAgentGNU(WHITE, net=model, gnubg_interface=gnubg_interface), env=gnubg_env,
+                      n_episodes=num_episodes)
+
+    args.queue.put(wins[WHITE])
+
 def args_gnubg(args):
     model_agent0 = args.model_agent0
     model_type = args.type
@@ -131,18 +179,39 @@ def args_gnubg(args):
     port = args.port
     difficulty = args.difficulty
 
+    args.queue = mp.Queue()
+
     if path_exists(model_agent0):
         # assert os.path.exists(model_agent0), print("The path {} doesn't exists".format(model_agent0))
         if model_type == 'nn':
-            net0 = TDGammon(hidden_units=hidden_units_agent0, lr=0.1, lamda=None, init_weights=False)
+            net0 = TDGammonNew(hidden_units=hidden_units_agent0, lr=0.1, lamda=None, init_weights=False)
         else:
             net0 = TDGammonCNN(lr=0.0001)
 
         net0.load(checkpoint_path=model_agent0, optimizer=None, eligibility_traces=False)
+        net0.share_memory()
 
-        gnubg_interface = GnubgInterface(host=host, port=port)
-        gnubg_env = GnubgEnv(gnubg_interface, difficulty=difficulty, model_type=model_type)
-        evaluate_vs_gnubg(agent=TDAgentGNU(WHITE, net=net0, gnubg_interface=gnubg_interface), env=gnubg_env, n_episodes=n_episodes)
+        start = time.time()
+
+        processes = []
+        num_processes = n_episodes // 4 #  TODO: change to a param
+        for proc in range(num_processes):
+            num_eval_eps = n_episodes // num_processes + (proc < n_episodes % num_processes)
+            p = threading.Thread(target=launch_eval, args=(args, net0, proc, num_eval_eps))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
+
+        end = time.time()
+        print(f'It took {end - start} seconds to complete all {n_episodes} episodes')
+
+        wins = 0
+        for _ in range(num_processes):
+            wins += args.queue.get()
+
+        print(f'Agent won {wins} out of {n_episodes} episodes for a win rate of {wins / n_episodes}')
 
 
 # ===================================== PLOT PARAMETERS ======================================

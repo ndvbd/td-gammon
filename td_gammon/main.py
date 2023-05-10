@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     parser_train = subparsers.add_parser('train', help='Train TD-Network', formatter_class=lambda prog: formatter(prog))
     parser_train.add_argument('--save_path', help='Save directory location', type=str, default=None)
-    parser_train.add_argument('--save_step', help='Save the model every n episodes/games', type=int, default=0)
+
     parser_train.add_argument('--episodes', help='Number of episodes/games', type=int, default=200000)
     parser_train.add_argument('--init_weights', help='Init Weights with zeros', action='store_true')
     parser_train.add_argument('--lr', help='Learning rate', type=float, default=1e-4)
@@ -22,6 +22,10 @@ if __name__ == '__main__':
     parser_train.add_argument('--name', help='Name of the experiment', type=str, default='exp1')
     parser_train.add_argument('--type', help='Model type', choices=['cnn', 'nn'], type=str, default='nn')
     parser_train.add_argument('--seed', help='Seed used to reproduce results', type=int, default=123)
+
+    parser_train.add_argument('--eval_step', help='Evaluate the model every n episodes/games', type=int, default=0)
+    parser_train.add_argument('--eval_opponent', help='Path to the model neural network to evaluate against', type=str, default=None)
+    parser_train.add_argument('--processes', help='Number of processes to use during training', type=int, default=1)
 
     parser_train.set_defaults(func=utils.args_train)
 
