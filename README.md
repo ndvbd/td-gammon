@@ -218,3 +218,5 @@ Took about 2.2 hours to train with 12 processes
 .43 against advanced
 .33 against world-class
 .77 against beginner
+
+eval_net is a 40 neuron NN. It is about .6 against intermediate and .4 against advanced. 

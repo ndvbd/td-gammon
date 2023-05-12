@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser_gnubg = subparsers_gnubg.add_parser('vs_gnubg', help='Evaluate agent0 against gnubg', formatter_class=lambda prog: formatter(prog))
     parser_gnubg.add_argument('--host', help='Host running gnubg', type=str, required=True)
     parser_gnubg.add_argument('--port', help='Port listening for gnubg commands', type=int, required=True)
+    parser_gnubg.add_argument('--num_servers', help='Number of gnubg servers being run in parallel', type=int, default=1)
     parser_gnubg.add_argument('--difficulty', help='Difficulty level', choices=['beginner', 'intermediate', 'advanced', 'world_class'], type=str, required=False, default='beginner')
 
     parser_gnubg.set_defaults(func=utils.args_gnubg)
@@ -62,6 +63,7 @@ if __name__ == '__main__':
     parser_plot.add_argument('--opponent', help='Opponent(s) agent(s) (delimited by comma) - "random" and/or "gnubg"', default='random', type=str)
     parser_plot.add_argument('--host', help='Host running gnubg (if gnubg in --opponent)', type=str)
     parser_plot.add_argument('--port', help='Port listening for gnubg commands (if gnubg in --opponent)', type=int)
+    parser_plot.add_argument('--num_servers', help='Number of gnubg servers being run in parallel (if gnubg in --opponent)', type=int, default=1)
     parser_plot.add_argument('--difficulty', help='Difficulty level(s) (delimited by comma)', type=str, default="beginner,intermediate,advanced,world_class")
     parser_plot.add_argument('--dst', help='Save directory location', type=str, default='myexp')
     parser_plot.add_argument('--type', help='Model type', choices=['cnn', 'nn'], type=str, default='nn')

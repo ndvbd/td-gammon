@@ -6,7 +6,7 @@ import sys
 from agents import TDAgent, HumanAgent, TDAgentGNU, RandomAgent, evaluate_agents
 from gnubg.gnubg_backgammon import GnubgInterface, GnubgEnv, evaluate_vs_gnubg
 from gym_backgammon.envs.backgammon import WHITE, BLACK
-from model import TDGammon, TDGammonCNN, TDGammonNew
+from model import TDGammon, TDGammonCNN
 from web_gui.gui import GUI
 from torch.utils.tensorboard import SummaryWriter
 
@@ -55,7 +55,7 @@ def args_train(args):
     optimizer = None
 
     if model_type == 'nn':
-        net = TDGammonNew(hidden_units=hidden_units, num_residuals=3, lr=lr, lamda=lamda, init_weights=init_weights, seed=seed, save_path=args.save_path)
+        net = TDGammon(hidden_units=hidden_units, lr=lr, lamda=lamda, init_weights=init_weights, seed=seed, save_path=args.save_path)
         eligibility = True
         env = gym.make('gym_backgammon:backgammon-v0')
 
@@ -161,10 +161,10 @@ def args_evaluate(args):
 import torch.multiprocessing as mp
 import threading
 
-def launch_eval(args, model, proc, num_episodes):
+def launch_gnubg_eval(args, model, difficulty, proc, num_episodes):
     port = args.port + proc
     gnubg_interface = GnubgInterface(host=args.host, port=port)
-    gnubg_env = GnubgEnv(gnubg_interface, difficulty=args.difficulty, model_type=args.type)
+    gnubg_env = GnubgEnv(gnubg_interface, difficulty=difficulty, model_type=args.type)
     wins = evaluate_vs_gnubg(agent=TDAgentGNU(WHITE, net=model, gnubg_interface=gnubg_interface), env=gnubg_env,
                       n_episodes=num_episodes)
 
@@ -184,7 +184,7 @@ def args_gnubg(args):
     if path_exists(model_agent0):
         # assert os.path.exists(model_agent0), print("The path {} doesn't exists".format(model_agent0))
         if model_type == 'nn':
-            net0 = TDGammonNew(hidden_units=hidden_units_agent0, lr=0.1, lamda=None, init_weights=False)
+            net0 = TDGammon(hidden_units=hidden_units_agent0, lr=0.1, lamda=None, init_weights=False)
         else:
             net0 = TDGammonCNN(lr=0.0001)
 
@@ -194,10 +194,10 @@ def args_gnubg(args):
         start = time.time()
 
         processes = []
-        num_processes = n_episodes // 4 #  TODO: change to a param
+        num_processes = args.num_servers
         for proc in range(num_processes):
-            num_eval_eps = n_episodes // num_processes + (proc < n_episodes % num_processes)
-            p = threading.Thread(target=launch_eval, args=(args, net0, proc, num_eval_eps))
+            num_eval_eps = n_episodes // num_processes + (proc < n_episodes % num_processes) # I don't remember how this works, but it makes sure that the total number of episodes is correct even if n_episodes is not divisible by num_processes
+            p = threading.Thread(target=launch_gnubg_eval, args=(args, net0, args.difficulty, proc, num_eval_eps))
             p.start()
             processes.append(p)
 
@@ -234,6 +234,8 @@ def args_plot(args, parser):
     difficulties = args.difficulty.split(',')
     model_type = args.type
 
+    args.queue = mp.Queue()
+
     if path_exists(src):
         # assert os.path.exists(src), print("The path {} doesn't exists".format(src))
 
@@ -264,16 +266,35 @@ def args_plot(args, parser):
                         env = gym.make('gym_backgammon:backgammon-pixel-v0')
 
                     net.load(checkpoint_path=os.path.join(root, file), optimizer=None, eligibility_traces=False)
+                    net.share_memory()
 
                     if 'gnubg' in opponents:
                         tag_scalar_dict = {}
 
-                        gnubg_interface = GnubgInterface(host=host, port=port)
-
                         for difficulty in difficulties:
-                            gnubg_env = GnubgEnv(gnubg_interface, difficulty=difficulty, model_type=model_type)
-                            wins = evaluate_vs_gnubg(agent=TDAgentGNU(WHITE, net=net, gnubg_interface=gnubg_interface), env=gnubg_env, n_episodes=n_episodes)
-                            tag_scalar_dict[difficulty] = wins[WHITE]
+
+                            start = time.time()
+
+                            processes = []
+                            num_processes = args.num_servers
+                            for proc in range(num_processes):
+                                num_eval_eps = n_episodes // num_processes + (
+                                            proc < n_episodes % num_processes)  # I don't remember how this works, but it makes sure that the total number of episodes is correct even if n_episodes is not divisible by num_processes
+                                p = threading.Thread(target=launch_gnubg_eval, args=(args, net, difficulty, proc, num_eval_eps))
+                                p.start()
+                                processes.append(p)
+
+                            for p in processes:
+                                p.join()
+
+                            wins = 0
+                            for _ in range(num_processes):
+                                wins += args.queue.get()
+
+                            end = time.time()
+                            print(f'It took {end - start} seconds to complete all {n_episodes} episodes for {difficulty} difficulty')
+
+                            tag_scalar_dict[difficulty] = wins
 
                         writer.add_scalars('wins_vs_gnubg/', tag_scalar_dict, global_step)
 
