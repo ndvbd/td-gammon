@@ -183,7 +183,11 @@ class GnubgEnv:
             self.gnubg_interface.send_command('set player gnubg cube evaluation noise 0.060')
 
         elif self.difficulty == 'intermediate':
+            self.gnubg_interface.send_command('set player gnubg chequer evaluation plies 0')
+            self.gnubg_interface.send_command('set player gnubg chequer evaluation prune off')
+            self.gnubg_interface.send_command('set player gnubg cube evaluation plies 0')
             self.gnubg_interface.send_command('set player gnubg chequer evaluation noise 0.040')
+            self.gnubg_interface.send_command('set player gnubg cube evaluation prune off')
             self.gnubg_interface.send_command('set player gnubg cube evaluation noise 0.040')
 
         elif self.difficulty == 'advanced':

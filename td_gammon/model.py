@@ -62,14 +62,14 @@ class BaseModel(nn.Module):
         if optimizer is not None:
             self.optimizer.load_state_dict(checkpoint['optimizer'])
 
-    def train_agent(self, env, n_episodes, eligibility=False, eval_step=0, name_experiment='', eval_opponent = None, barrier=None):
+    def train_agent(self, env, n_episodes, eligibility=False, eval_step=0, name_experiment='', eval_opponent = None, eval_hidden_units=40, barrier=None):
         start_episode = self.start_episode
         n_episodes += start_episode
 
         do_eval = eval_step > 0 and eval_opponent is not None
         if eval_opponent is not None:
             # TODO: support other opponents like gnubg
-            opponent_net = TDGammon(hidden_units=40, lr=0.1, lamda=None, init_weights=False)
+            opponent_net = TDGammon(hidden_units=eval_hidden_units, lr=0.1, lamda=None, init_weights=False)
             opponent_net.load(eval_opponent, None, False)
             eval_agent = TDAgent(BLACK, net=opponent_net)
 

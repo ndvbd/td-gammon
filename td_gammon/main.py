@@ -25,6 +25,7 @@ if __name__ == '__main__':
 
     parser_train.add_argument('--eval_step', help='Evaluate the model every n episodes/games', type=int, default=0)
     parser_train.add_argument('--eval_opponent', help='Path to the model neural network to evaluate against', type=str, default=None)
+    parser_train.add_argument('--eval_hidden_units', help='Hidden units of the model neural network to evaluate against', type=int, default=40)
     parser_train.add_argument('--processes', help='Number of processes to use during training', type=int, default=1)
 
     parser_train.set_defaults(func=utils.args_train)

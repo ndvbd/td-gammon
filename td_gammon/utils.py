@@ -38,8 +38,8 @@ def launch_train(args, net, num_episodes, eval_step, barrier):
     else:
         env = gym.make('gym_backgammon:backgammon-pixel-v0')
 
-    net.train_agent(env=env, n_episodes=num_episodes, eval_step=eval_step, eval_opponent=args.eval_opponent, eligibility=True,
-                    name_experiment=args.name, barrier=barrier)
+    net.train_agent(env=env, n_episodes=num_episodes, eval_step=eval_step, eval_opponent=args.eval_opponent, eval_hidden_units=args.eval_hidden_units,
+                    eligibility=True, name_experiment=args.name, barrier=barrier)
 
 def args_train(args):
     n_episodes = args.episodes
