@@ -3,6 +3,9 @@ import time
 
 import gym
 import sys
+
+import torch
+
 from agents import TDAgent, HumanAgent, TDAgentGNU, RandomAgent, evaluate_agents
 from gnubg.gnubg_backgammon import GnubgInterface, GnubgEnv, evaluate_vs_gnubg
 from gym_backgammon.envs.backgammon import WHITE, BLACK
@@ -152,10 +155,27 @@ def args_evaluate(args):
         net0.load(checkpoint_path=model_agent0, optimizer=None, eligibility_traces=False)
         net1.load(checkpoint_path=model_agent1, optimizer=None, eligibility_traces=False)
 
+        net0.eval()
+        net1.eval()
+
         agents = {WHITE: TDAgent(WHITE, net=net1), BLACK: TDAgent(BLACK, net=net0)}
 
-        evaluate_agents(agents, env, n_episodes)
+        start = time.time()
 
+        with torch.no_grad():
+            wins = evaluate_agents(agents, env, n_episodes)
+
+        end = time.time()
+
+        #                 print("EVAL => Game={:<6d} | Winner={} | after {:<4} plays || Wins: {}={:<6}({:<5.1f}%) | {}={:<6}({:<5.1f}%) | Duration={:<.3f} sec".format(episode + 1, winner, i,
+        #                     agents[WHITE].name, wins[WHITE], (wins[WHITE] / tot) * 100,
+        #                     agents[BLACK].name, wins[BLACK], (wins[BLACK] / tot) * 100, time.time() - t))
+
+        winner_color = WHITE if wins[WHITE] > wins[BLACK] else BLACK
+        loser_color = BLACK if winner_color == WHITE else WHITE
+        print("EVAL => Winner: {}={:<6}({:<5.1f}%) | {}={:<6}({:<5.1f}%) | Total Duration={:<.3f} sec".format(
+            agents[winner_color].name, wins[winner_color], (wins[winner_color] / n_episodes) * 100,
+            agents[loser_color].name, wins[loser_color], (wins[loser_color] / n_episodes) * 100, end - start))
 
 # ===================================== GNUBG PARAMETERS =====================================
 import torch.multiprocessing as mp

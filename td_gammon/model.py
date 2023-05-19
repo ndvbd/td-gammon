@@ -132,7 +132,7 @@ class BaseModel(nn.Module):
                 observation = observation_next
 
             if do_eval and (episode + 1) % eval_step == 0:
-                # do evaluation; only one process is allowed to do this, so we use a barrier
+                # do evaluation; only one process is allowed to do this, so we use a barrier, TODO: make this work when we only have one process
                 if barrier:
                     index = barrier.wait()
                     if index == 0:

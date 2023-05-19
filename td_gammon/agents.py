@@ -4,6 +4,7 @@ from itertools import count
 from random import randint, choice
 
 import numpy as np
+import torch
 
 from gym_backgammon.envs import BackgammonEnv
 from gym_backgammon.envs.backgammon import WHITE, BLACK, COLORS
@@ -65,7 +66,8 @@ class TDAgent(Agent):
         best_action = None
 
         if actions:
-            values = [0.0] * len(actions)
+            #values = [0.0] * len(actions)
+            obs = []
             tmp_counter = env.counter
             env.counter = 0
             state = env.game.save_state()
@@ -73,15 +75,17 @@ class TDAgent(Agent):
             # Iterate over all the legal moves and pick the best action
             for i, action in enumerate(actions):
                 observation, reward, done, info = env.step(action)
-                values[i] = self.net(observation)
-
+                #values[i] = self.net(observation)
+                obs.append(observation)
                 # restore the board and other variables (undo the action)
                 env.game.restore_state(state)
+
+            values = self.net(obs)
 
             # practical-issues-in-temporal-difference-learning, pag.3
             # ... the network's output P_t is an estimate of White's probability of winning from board position x_t.
             # ... the move which is selected at each time step is the move which maximizes P_t when White is to play and minimizes P_t when Black is to play.
-            best_action_index = int(np.argmax(values)) if self.color == WHITE else int(np.argmin(values))
+            best_action_index = int(torch.argmax(values)) if self.color == WHITE else int(torch.argmin(values))
             best_action = list(actions)[best_action_index]
             env.counter = tmp_counter
 
@@ -218,6 +222,8 @@ def evaluate_agents(agents, env, n_episodes):
                     agents[BLACK].name, wins[BLACK], (wins[BLACK] / tot) * 100, time.time() - t))
                 break
 
+            # one run 34.085 sec, 2nd = 33.850 sec, 3rd 33.988 sec, 34.197 sec 4th
+            # w/ batching: 12.83 secs
             agent_color = env.get_opponent_agent()
             agent = agents[agent_color]
 
