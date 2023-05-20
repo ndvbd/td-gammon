@@ -154,6 +154,8 @@ class BaseModel(nn.Module):
                         if self.save_path:
                             self.checkpoint(checkpoint_path=self.save_path, step=episode, name_experiment=name_experiment)
 
+                    self.lr = self.lr *.98
+
                     barrier.wait() # after the evaluation is done, wait a bit longer before returning to training
 
         print("\nAverage duration per game: {} seconds".format(round(sum(durations) / n_episodes, 3)))
