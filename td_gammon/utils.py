@@ -6,7 +6,7 @@ import sys
 
 import torch
 
-from agents import TDAgent, HumanAgent, TDAgentGNU, RandomAgent, evaluate_agents
+from agents import TDAgent, HumanAgent, TDAgentGNU, RandomAgent, evaluate_agents, TDPlyAgent
 from gnubg.gnubg_backgammon import GnubgInterface, GnubgEnv, evaluate_vs_gnubg
 from gym_backgammon.envs.backgammon import WHITE, BLACK
 from model import TDGammon, TDGammonCNN
@@ -158,7 +158,7 @@ def args_evaluate(args):
         net0.eval()
         net1.eval()
 
-        agents = {WHITE: TDAgent(WHITE, net=net1), BLACK: TDAgent(BLACK, net=net0)}
+        agents = {WHITE: TDPlyAgent(WHITE, net=net1, ply=1), BLACK: TDAgent(BLACK, net=net0)}
 
         start = time.time()
 

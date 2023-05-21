@@ -60,7 +60,7 @@ class TDAgent(Agent):
         self.net = net
         self.name = 'TDAgent({})'.format(COLORS[color])
         self.color = color
-        self.opp_color = 0 if color == 1 else 1
+        self.opp_color = BLACK if color == WHITE else WHITE
 
     def choose_best_action(self, actions, env):
         best_action = None
@@ -74,7 +74,7 @@ class TDAgent(Agent):
 
             # Iterate over all the legal moves and pick the best action
             for i, action in enumerate(actions):
-                observation, reward, done, info = env.step(action)
+                observation, reward, done, winner = env.step(action)
                 #values[i] = self.net(observation)
                 obs.append(observation)
                 # restore the board and other variables (undo the action)
@@ -91,47 +91,96 @@ class TDAgent(Agent):
 
         return best_action
 
-    # def choose_best_action(self, actions, env : BackgammonEnv, lookahead=2):
-    #     print('TDAgent.choose_best_action()')
-    #     best_action = None
-    #
-    #     if actions:
-    #         values = [0.0] * len(actions)
-    #         tmp_counter = env.counter
-    #         env.counter = 0
-    #         state = env.game.save_state()
-    #
-    #         # Iterate over all the legal moves and pick the best action
-    #         for i, action in enumerate(actions):
-    #             observation, reward, done, info = env.step(action)
-    #             if done or lookahead == 0:
-    #                 values[i] = self.net(observation)
-    #             else:
-    #                 # Perform lookahead by calling choose_best_action recursively
-    #                 # and passing the opponent's possible actions as the input
-    #                 opponent_actions = env.get_valid_actions(self.opp_color)
-    #                 opponent_best_action = self.choose_best_action(opponent_actions, env, lookahead - 1)
-    #                 if opponent_best_action is not None:
-    #                     _, opponent_reward, _, _ = env.step(opponent_best_action)
-    #                     # Negate the opponent's reward because it is their reward, not ours
-    #                     values[i] = -opponent_reward
-    #                 else:
-    #                     # If the opponent has no possible actions, then we win
-    #                     values[i] = 1.0
-    #             # restore the board and other variables (undo the action)
-    #             env.game.restore_state(state)
-    #
-    #         # practical-issues-in-temporal-difference-learning, pag.3
-    #         # ... the network's output P_t is an estimate of White's probability of winning from board position x_t.
-    #         # ... the move which is selected at each time step is the move which maximizes P_t when White is to play and minimizes P_t when Black is to play.
-    #         best_action_index = int(np.argmax(values)) if self.color == WHITE else int(np.argmin(values))
-    #         best_action = list(actions)[best_action_index]
-    #         env.counter = tmp_counter
-    #
-    #     print("best_action: ", best_action)
-    #     return best_action
+class TDPlyAgent(TDAgent):
+    def __init__(self, color, net, ply, top_n_moves=8):
+        super().__init__(color, net)
+        self.ply = ply
+        self.top_n_moves = top_n_moves # TODO: we currently check all moves, but that's inefficient, change it
+
+        self.all_white_rolls = []
+        self.all_black_rolls = []
+
+        for first_die in range(1,7):
+            for second_die in range(first_die, 7):
+                self.all_white_rolls.append((-first_die, -second_die))
+                self.all_black_rolls.append((first_die, second_die))
+
+    def choose_best_action(self, actions, env : BackgammonEnv):
+        value, action = self._choose_best_action(actions, env, self.ply, self.color)
+
+        return action
+
+    def _choose_best_action(self, actions, env, ply, color):
+        best_action = None
+        best_action_value = .5
+
+        if not actions:
+            return best_action_value, best_action
+
+        if ply == 0:
+            obs = []
+            tmp_counter = env.counter
+            env.counter = 0
+            state = env.game.save_state()
+
+            # Iterate over all the legal moves and pick the best action
+            for i, action in enumerate(actions):
+                observation, reward, done, winner = env.step(action)
+
+                obs.append(observation)
+                # restore the board and other variables (undo the action)
+                env.game.restore_state(state)
+
+            values = self.net(obs)
+
+            best_action_value = float(torch.max(values)) if color == WHITE else float(torch.min(values))
+            best_action_index = int(torch.argmax(values)) if color == WHITE else int(torch.argmin(values))
+
+            best_action = list(actions)[best_action_index]
+            env.counter = tmp_counter
+        else:
+            obs = []
+            future_values = []
+            tmp_counter = env.counter
+            env.counter = 0
+            state = env.game.save_state()
+
+            # Iterate over all the legal moves, and then recursively calculate the value of the board after taking that move
+            for i, action in enumerate(actions):
+                observation, reward, done, winner = env.step(action)
+
+                if done:
+                    # if the game is over, we don't need to explore down this action any further
+                    future_values.append(winner * ply)
+                else:
+                    avg_future_value = 0
+                    opp_color = env.get_opponent_agent()
+                    all_rolls = self.all_white_rolls if opp_color == WHITE else self.all_black_rolls
+
+                    for roll in all_rolls:
+                        next_valid_actions = env.get_valid_actions(roll)
+                        future_value, future_action = self._choose_best_action(next_valid_actions, env, ply - 1, opp_color)
+                        avg_future_value += future_value
+
+                    avg_future_value /= len(all_rolls)
+                    future_values.append(avg_future_value)
+
+                obs.append(observation)
+                # restore the board and other variables (undo the action)
+                env.game.restore_state(state)
+                env.current_agent = color
 
 
+            values = self.net(obs)
+            values = values.flatten() + torch.tensor(future_values)
+
+            best_action_value = float(torch.max(values)) if color == WHITE else float(torch.min(values))
+            best_action_index = int(torch.argmax(values)) if color == WHITE else int(torch.argmin(values))
+
+            best_action = list(actions)[best_action_index]
+            env.counter = tmp_counter
+
+        return best_action_value, best_action
 
 # TD-GAMMON AGENT (play against gnubg) ================================================================
 

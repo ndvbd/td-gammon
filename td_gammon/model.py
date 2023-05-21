@@ -259,6 +259,8 @@ class TDGammon(BaseModel):
 
         self.to(self.device)
 
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+
     def init_weights(self):
         for p in self.parameters():
             nn.init.zeros_(p)
