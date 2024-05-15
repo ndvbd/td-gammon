@@ -1,3 +1,4 @@
+#
 import os
 import sys
 import time
@@ -95,7 +96,8 @@ class GnubgEnv:
 		reward = 0
 		done = False
 
-		assert(self.gnubg.agent == WHITE)  # We are always the white = 0 , playing against gnubg which is black
+		# We are always the white = 0 , playing against gnubg which is black, unless gnubg won, and only then the agent can be BLACK
+		assert(self.gnubg.agent == WHITE or (self.gnubg.agent == BLACK and self.gnubg.winner == 'X'))
 		
 		# if self.gnubg.action['board'] == 'DwAAwLp9IIAAAA':
 		# 	delme = 5  # for debug
