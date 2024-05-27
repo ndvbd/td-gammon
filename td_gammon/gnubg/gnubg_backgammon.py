@@ -274,11 +274,19 @@ class GnubgEnv:
 			# some explanation about the rollout move filter:
 			# https://www.gnu.org/software/gnubg/manual/html_node/The-depth-to-search-and-plies.html
 			# https://www.gnu.org/software/gnubg/manual/html_node/Introduction-to-move-filters.html#Introduction-to-move-filters
+			# To query the status run command: show player gnubg movefilter
 			
+			# This means that for a 1-ply checker play, for 0-ply we accept 0 moves, and add 8 moves with 0.160 noise, and we do no pruning for 1-ply.
 			self.gnubg_interface.send_command('set player gnubg movefilter 1 0 0 8 0.160')
+			
+			# means that for 2-ply checker play decision, for 0-ply we accept 0 moves, and add 8 moves with 0.160 noise, and we do no pruning for 1-ply.
 			self.gnubg_interface.send_command('set player gnubg movefilter 2 0 0 8 0.160')
+			
 			self.gnubg_interface.send_command('set player gnubg movefilter 3 0 0 8 0.160')
 			self.gnubg_interface.send_command('set player gnubg movefilter 3 2 0 2 0.040')
+			
+			# This means, that for 4-ply checker play decision, for 0-ply we accept 0 moves, and add 8 moves with 0.160 noise
+			# for 1-ply we do no pruning (because there's no line for it), and for ply-2 moves we accept 0 moves, and add 2 moves with 0.040 noise
 			self.gnubg_interface.send_command('set player gnubg movefilter 4 0 0 8 0.160')
 			self.gnubg_interface.send_command('set player gnubg movefilter 4 2 0 2 0.040')
 			
