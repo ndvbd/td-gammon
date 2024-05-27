@@ -255,10 +255,25 @@ class GnubgEnv:
 			self.gnubg_interface.send_command('set player gnubg cube evaluation prune off')
 			self.gnubg_interface.send_command('set player gnubg cube evaluation noise 0.015')
 
-		elif self.difficulty == 'world_class':
-			self.gnubg_interface.send_command('set player gnubg chequer evaluation plies 2')
+		elif 'world_class' in self.difficulty:
+			if '2plies' in self.difficulty:
+				plies = 2
+			elif '1plies' in self.difficulty:
+				plies = 1
+			else:
+				raise NotImplementedError
+			
+			# NB change number of rollout plies here
+			# print('WARNING FIX ME - GNUBG_.PY')
+			# self.gnubg_interface.send_command('set player gnubg chequer evaluation plies 2')
+			self.gnubg_interface.send_command(f'set player gnubg chequer evaluation plies {plies}')  # for some reason got better gnu here 0.2
+			
 			self.gnubg_interface.send_command('set player gnubg chequer evaluation prune on')
 			self.gnubg_interface.send_command('set player gnubg chequer evaluation noise 0.000')
+			
+			# some explanation about the rollout move filter:
+			# https://www.gnu.org/software/gnubg/manual/html_node/The-depth-to-search-and-plies.html
+			# https://www.gnu.org/software/gnubg/manual/html_node/Introduction-to-move-filters.html#Introduction-to-move-filters
 			
 			self.gnubg_interface.send_command('set player gnubg movefilter 1 0 0 8 0.160')
 			self.gnubg_interface.send_command('set player gnubg movefilter 2 0 0 8 0.160')
@@ -266,8 +281,12 @@ class GnubgEnv:
 			self.gnubg_interface.send_command('set player gnubg movefilter 3 2 0 2 0.040')
 			self.gnubg_interface.send_command('set player gnubg movefilter 4 0 0 8 0.160')
 			self.gnubg_interface.send_command('set player gnubg movefilter 4 2 0 2 0.040')
-
-			self.gnubg_interface.send_command('set player gnubg cube evaluation plies 2')
+			
+			# print('WARNING FIX ME - GNUBG_.PY')
+			# self.gnubg_interface.send_command('set player gnubg cube evaluation plies 2')
+			self.gnubg_interface.send_command(f'set player gnubg cube evaluation plies {plies}')
+			
+			
 			self.gnubg_interface.send_command('set player gnubg cube evaluation prune on')
 			self.gnubg_interface.send_command('set player gnubg cube evaluation noise 0.000')
 
