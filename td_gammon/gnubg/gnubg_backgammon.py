@@ -11,7 +11,8 @@ from gym_backgammon.envs.rendering import Viewer
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-gnubgState = namedtuple('GNUState', ['agent', 'roll', 'move', 'board', 'double', 'winner', 'n_moves', 'action', 'resigned', 'history'])
+gnubgState = namedtuple('GNUState', ['agent', 'roll', 'move', 'board', 'double', 'winner',
+                                     'n_moves', 'action', 'resigned', 'history'])
 
 
 class GnubgInterface:
@@ -26,9 +27,16 @@ class GnubgInterface:
 	def send_command(self, command):
 		try:
 			resp = requests.post(url=self.url, data={"command": command})
-			return self.parse_response(resp.json())
+			if "match()" in command or "nbspecial" in command or "hint" in command:
+				return resp.json()
+			elif "set board" in command:
+				return resp.json()
+			else:
+				return self.parse_response(resp.json())
 		except Exception as e:
 			print("Error during connection to {}: {} (Remember to run gnubg -t -p bridge.py)".format(self.url, e))
+			raise
+		
 
 	def parse_response(self, response):
 		gnubg_board = response["board"]
@@ -62,7 +70,8 @@ class GnubgInterface:
 			if action['action'] == 'move':
 				move = tuple(tuple([self.gnu_to_idx[a - 1], self.gnu_to_idx[b - 1]]) for (a, b) in action['move'])
 
-		return gnubgState(agent=agent, roll=roll, move=move, board=gnubg_board[:], double=double, winner=winner, n_moves=n_moves, action=action, resigned=resigned, history=response["info"])
+		return gnubgState(agent=agent, roll=roll, move=move, board=gnubg_board[:], double=double, winner=winner,
+		                  n_moves=n_moves, action=action, resigned=resigned, history=response["info"])
 
 	def parse_action(self, action):
 		result = ""
@@ -80,7 +89,7 @@ class GnubgInterface:
 
 
 class GnubgEnv:
-	DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'world_class']
+	DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'world_class']  # I dont see it is used anywhere
 
 	def __init__(self, gnubg_interface, difficulty='beginner', model_type='nn'):
 		self.game = Game()
@@ -297,7 +306,21 @@ class GnubgEnv:
 			
 			self.gnubg_interface.send_command('set player gnubg cube evaluation prune on')
 			self.gnubg_interface.send_command('set player gnubg cube evaluation noise 0.000')
-
+		
+		elif self.difficulty == 'grandmaster':
+			self.gnubg_interface.send_command('set player gnubg chequer evaluation plies 3')
+			self.gnubg_interface.send_command('set player gnubg chequer evaluation prune off')
+			self.gnubg_interface.send_command('set player gnubg chequer evaluation noise 0.000')
+			
+			self.gnubg_interface.send_command('set player gnubg cube evaluation plies 3')
+			self.gnubg_interface.send_command('set player gnubg cube evaluation prune off')
+			self.gnubg_interface.send_command('set player gnubg cube evaluation noise 0.000')
+			
+			self.gnubg_interface.send_command('set evaluation chequer filter large')
+		
+		else:
+			raise NotImplementedError("unknown gnubg level?")
+		
 		self.gnubg_interface.send_command('save setting')
 
 	def render(self, mode='human'):
