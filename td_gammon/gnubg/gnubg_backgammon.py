@@ -34,9 +34,11 @@ class GnubgInterface:
 				return resp.json()
 			else:
 				return self.parse_response(resp.json())
+			
 		except Exception as e:
-			print("Error during connection to {}: {} (Remember to run gnubg -t -p bridge.py)".format(self.url, e))
-			raise
+			
+			msg = f"Error during connection to {self.url} with command={command!r}: {e}"
+			raise RuntimeError(msg) from e
 		
 
 	def parse_response(self, response):
