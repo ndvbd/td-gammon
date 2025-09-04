@@ -27,7 +27,7 @@ class GnubgInterface:
 	def send_command(self, command):
 		try:
 			
-			resp = requests.post(url=self.url, data={"command": command}, timeout=0.2 )
+			resp = requests.post(url=self.url, data={"command": command}, timeout=0.01 )
 			if "match()" in command or "nbspecial" in command or "hint" in command:
 				return resp.json()
 			elif "set board" in command:
