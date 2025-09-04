@@ -1,4 +1,4 @@
-#
+# WHEN CHANGING THIS FILE NEED TO PUSH INTO ndvbd/td-gammon.git repo and pull
 import os
 import sys
 import time
@@ -26,7 +26,8 @@ class GnubgInterface:
 
 	def send_command(self, command):
 		try:
-			resp = requests.post(url=self.url, data={"command": command})
+			
+			resp = requests.post(url=self.url, data={"command": command}, timeout=0.2 )
 			if "match()" in command or "nbspecial" in command or "hint" in command:
 				return resp.json()
 			elif "set board" in command:
